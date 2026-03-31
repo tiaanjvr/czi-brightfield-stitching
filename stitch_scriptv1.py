@@ -9,8 +9,8 @@ import concurrent.futures
 # =============================================================================
 # 1. GLOBAL VARIABLES
 # =============================================================================
-INPUT_FOLDER = "/run/media/tiaan/Windows-SSD/czi/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/run/media/tiaan/Windows-SSD/czi/2026 rats/stitched_output/"
+INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/" # "/run/media/tiaan/Windows-SSD/czi/2026 rats/control/"
+OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/" # "/run/media/tiaan/Windows-SSD/czi/2026 rats/stitched_output/"
 
 CHANNEL_TO_STITCH = 0 
 Z_PLANE_TO_STITCH = 0
@@ -18,7 +18,12 @@ Z_PLANE_TO_STITCH = 0
 # How many files to process at the exact same time. 
 # WARNING: Each file might use 1-2GB of RAM during stitching. 
 # If you have 16GB of RAM, keep this at 4 or 6. If you have 32GB+, you can increase it.
-MAX_WORKERS = 4 
+MAX_WORKERS = 6
+
+# How to force quit on Linux:
+# Press Ctrl + \ (This sends a SIGQUIT, which is much more aggressive than Ctrl+C).
+# Alternatively, press Ctrl + Z to suspend the process, then type kill -9 %1 and hit enter to completely execute it.
+# Or, just close the terminal window entirely.
 # =============================================================================
 
 def process_single_file(czi_path, output_dir):
@@ -30,7 +35,6 @@ def process_single_file(czi_path, output_dir):
     try:
         czi = CziFile(czi_path)
         
-        # 1. Dimension and Tile Check
         if 'M' not in czi.dims:
             return f"Skipped {filename}: Not a mosaic (single image)."
         
@@ -39,25 +43,32 @@ def process_single_file(czi_path, output_dir):
         if tile_count != 25:
             return f"Skipped {filename}: Found {tile_count} tiles instead of 25."
             
-        # 2. Build arguments dynamically
         kwargs = {'scale_factor': 1.0}
         if 'C' in czi.dims: kwargs['C'] = CHANNEL_TO_STITCH
         if 'Z' in czi.dims: kwargs['Z'] = Z_PLANE_TO_STITCH
             
-        # 3. Read and Squeeze
         mosaic_data = czi.read_mosaic(**kwargs)
         mosaic_array = np.squeeze(mosaic_data)
         
-        # 4. Save with zlib compression to reduce file size significantly
+        # --- TROUBLESHOOTING PRINT STATEMENT ---
+        # This prints the mathematical dimensions of the final image
+        print(f"  -> Diagnostics for {filename}: Shape={mosaic_array.shape}, Data Type={mosaic_array.dtype}")
+        
+        # --- QUPATH-COMPATIBLE TIFF SAVE ---
         tifffile.imwrite(
             out_tiff_path, 
             mosaic_array, 
+            photometric='rgb',
             bigtiff=True, 
-            imagej=True, 
+            ome=True,             # Uses the standard Open Microscopy Environment format
+            tile=(512, 512),      # CRITICAL: Forces square tiles instead of horizontal strips
             compression='zlib'
         )
         
         return f"Success: {filename} -> Saved (Stitched {tile_count} tiles)"
+        
+    except Exception as e:
+        return f"Error: {filename} -> {e}"
         
     except Exception as e:
         return f"Error: {filename} -> {e}"
