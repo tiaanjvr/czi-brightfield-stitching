@@ -2,3 +2,9 @@ Use python/opencv/headless fiji/ashlar?
 View images with QuPath
 
 ashlar "/home/tiaan/Downloads/2026 rats/control/R53_HE-0005.czi" -o "/home/tiaan/Downloads/2026 rats/stitched_output/test/test_output.ome.tif"
+
+
+
+conda activate microscopy_env
+cd /mnt/data/dev/personal/stitch_script
+python stitch_scriptv1.py
