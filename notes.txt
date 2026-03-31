@@ -1,0 +1,4 @@
+Use python/opencv/headless fiji/ashlar?
+View images with QuPath
+
+ashlar "/home/tiaan/Downloads/2026 rats/control/R53_HE-0005.czi" -o "/home/tiaan/Downloads/2026 rats/stitched_output/test/test_output.ome.tif"
