@@ -1,33 +1,28 @@
 import os
 import glob
 from datetime import datetime
-from pylibczi import CziFile
+import numpy as np
+from aicspylibczi import CziFile
 import tifffile
 
 # =============================================================================
 # 1. GLOBAL VARIABLES
 # =============================================================================
-# Use raw strings (r"") for Windows file paths to avoid escape character errors
-INPUT_FOLDER = r"C:\Path\To\Your\Raw_CZI_Files"
-OUTPUT_BASE_FOLDER = r"C:\Path\To\Your\Stitched_Output"
+INPUT_FOLDER = "/path/to/your/Raw_CZI_Files"  # Updated for Linux paths
+OUTPUT_BASE_FOLDER = "/path/to/your/Stitched_Output"
 
-# For standard 2D brightfield/histology, we pull the first channel and focal plane.
-# If your images have multiple fluorescent channels, you can adjust this.
 CHANNEL_TO_STITCH = 0 
 Z_PLANE_TO_STITCH = 0
 # =============================================================================
 
 def process_microscopy_files():
-    # 2. Create the dynamically named output folder
     timestamp = datetime.now().strftime("%d%b%Y_at_%Hh%Mm%Ss")
     output_folder_name = f"tiff_output_{timestamp}"
     output_dir = os.path.join(OUTPUT_BASE_FOLDER, output_folder_name)
     
-    # Create the folder (exist_ok prevents crashes if it already exists)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Created output directory: {output_dir}\n")
 
-    # 3. Take all CZI files in the input folder
     search_pattern = os.path.join(INPUT_FOLDER, "*.czi")
     czi_files = glob.glob(search_pattern)
     
@@ -37,27 +32,24 @@ def process_microscopy_files():
 
     print(f"Found {len(czi_files)} files. Starting batch processing...\n")
 
-    # 4. Perform the steps on each file
     for czi_path in czi_files:
         filename = os.path.basename(czi_path)
         base_name = os.path.splitext(filename)[0]
-        
-        # Keep the original filename, change extension to .tiff
         out_tiff_path = os.path.join(output_dir, f"{base_name}.tiff")
         
         print(f"Processing: {filename}...")
         
         try:
-            # Open the CZI file
+            # 1. Open with Allen Institute's CZI reader
             czi = CziFile(czi_path)
             
-            # Read the mosaic metadata and automatically stitch the tiles 
-            # into a single 2D image matrix based on the X/Y stage coordinates.
-            mosaic_array = czi.read_mosaic(C=CHANNEL_TO_STITCH, Z=Z_PLANE_TO_STITCH)
+            # 2. Read the mosaic. scale_factor=1.0 keeps it at 100% resolution
+            mosaic_data = czi.read_mosaic(C=CHANNEL_TO_STITCH, Z=Z_PLANE_TO_STITCH, scale_factor=1.0)
             
-            # Save the stitched array as a TIFF
-            # bigtiff=True is used safely in case your 5x5 grids exceed 4GB in memory
-            # imagej=True writes metadata so Fiji can still easily read the final file
+            # 3. aicspylibczi returns a 4D array (T, Z, Y, X). Squeeze removes the empty T and Z.
+            mosaic_array = np.squeeze(mosaic_data)
+            
+            # 4. Save to TIFF
             tifffile.imwrite(out_tiff_path, mosaic_array, bigtiff=True, imagej=True)
             
             print(f"  -> Success: Saved to {out_tiff_path}")
