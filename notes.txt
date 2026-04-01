@@ -7,4 +7,4 @@ ashlar "/home/tiaan/Downloads/2026 rats/control/R53_HE-0005.czi" -o "/home/tiaan
 
 conda activate microscopy_env
 cd /mnt/data/dev/personal/stitch_script
-python stitch_scriptv1.py
+python stitch_script_extract_fiji.py

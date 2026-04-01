@@ -12,7 +12,7 @@ from aicspylibczi import CziFile
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
 INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipeline/"
+OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipeline2/"
 # =============================================================================
 
 def perfect_pipeline_stitch():
@@ -76,14 +76,23 @@ def perfect_pipeline_stitch():
                 # 1. Read the tile
                 tile_data, _ = czi.read_image(M=m)
                 tile_data = np.squeeze(tile_data) 
-                
-                # 2. Fix the color
+
+                # MAKES THE GREEN LOOK BLUE???                
+                # # 2. Fix the color
+                # if len(tile_data.shape) == 3:
+                #     if tile_data.shape[0] == 3:      
+                #         tile_data = np.moveaxis(tile_data, 0, -1)
+                #         tile_data = tile_data[..., ::-1] 
+                #     elif tile_data.shape[-1] == 3:   
+                #         tile_data = tile_data[..., ::-1] 
+
+                # 2. Force manual color override: [Red, Blue, Green]
                 if len(tile_data.shape) == 3:
                     if tile_data.shape[0] == 3:      
                         tile_data = np.moveaxis(tile_data, 0, -1)
-                        tile_data = tile_data[..., ::-1] 
+                        tile_data = tile_data[..., [2, 0, 1]] 
                     elif tile_data.shape[-1] == 3:   
-                        tile_data = tile_data[..., ::-1] 
+                        tile_data = tile_data[..., [2, 0, 1]]                
                         
                 # 3. Save to disk
                 tile_name = f"tile_{m:02d}.tiff"
