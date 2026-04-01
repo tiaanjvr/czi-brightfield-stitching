@@ -12,8 +12,74 @@ from aicspylibczi import CziFile
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
 INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipeline3/"
+OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipelineP4/"
 # =============================================================================
+# Conclusion: Colours correct! Files compressed (sample file 423MB), timing added, saving successfully.
+
+# (microscopy_env) tiaan@fedora:/mnt/data/dev/personal/stitch_script$ python p4test.py 
+# --- PERFECT EXTRACTION & STITCHING PIPELINE ---
+
+# [1/49] Processing: R26_PRFG2-0017.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 3.5s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 62.2s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 14.8s)
+#   -> SUCCESS: Stitched and saved R26_PRFG2-0017.ome.tif (Total file time: 80.4s)
+
+# [2/49] Processing: R30_HE-0002.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 1.9s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 41.7s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 10.1s)
+#   -> SUCCESS: Stitched and saved R30_HE-0002.ome.tif (Total file time: 53.7s)
+
+# [3/49] Processing: R30_PRFG-0003.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 3.6s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 70.7s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 17.5s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0003.ome.tif (Total file time: 91.8s)
+
+# [4/49] Processing: R30_PRFG-0004.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 4.1s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 72.1s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 23.4s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0004.ome.tif (Total file time: 99.6s)
+
+# [5/49] Processing: R30_PRFG-0005.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 3.8s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 74.6s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 15.1s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0005.ome.tif (Total file time: 93.5s)
+
+#  Ignore rhis prompt: ok cool, here is some output:
+# (microscopy_env) tiaan@fedora:/mnt/data/dev/personal/stitch_script$ python stitch_script_extract_fiji.py 
+# --- PERFECT EXTRACTION & STITCHING PIPELINE ---
+# [1/49] Processing: R26_PRFG2-0017.czi
+#  -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#     (Completed in 4.1s)
+#  -> Stage 2: Fiji mathematical blending...
+#     (Completed in 67.0s)
+#  -> Stage 3: Zlib compression and OME metadata wrapping...
+#     (Completed in 18.7s)
+#  -> SUCCESS: Stitched and saved R26_PRFG2-0017.ome.tif (Total file time: 89.8s)
+# It still uses 200-400MB and saves as ".ome.tif", is that fine?
+# Also give me a readme for the repo with 1. Evolution and tools used to develop this 2. 
+# Libraries+versions used to run this script 3. Details of the microscopy_env. 
+# Rememer to use extra quotation marks (```` some text ````) to not escape the output text box
+    
 
 def perfect_pipeline_stitch():
     if not os.path.exists(FIJI_EXECUTABLE):
@@ -75,17 +141,16 @@ def perfect_pipeline_stitch():
             def process_single_tile(m):
                 # 1. Read the tile
                 tile_data, _ = czi.read_image(M=m)
-                tile_data = np.squeeze(tile_data)                                      
-                        
-                # 2. Fix Zeiss BGR to RGB color swap and ensure YXC shape
+                tile_data = np.squeeze(tile_data) 
+                
+                # 2. Fix the color
                 if len(tile_data.shape) == 3:
-                    # If aicspylibczi gives us (Color, Y, X), push Color to the back -> (Y, X, Color)
                     if tile_data.shape[0] == 3:      
                         tile_data = np.moveaxis(tile_data, 0, -1)
-                    
-                    # Reverse the last axis from BGR to RGB
-                    tile_data = tile_data[..., ::-1]
-                                            
+                        tile_data = tile_data[..., ::-1] 
+                    elif tile_data.shape[-1] == 3:   
+                        tile_data = tile_data[..., ::-1] 
+                        
                 # 3. Save to disk
                 tile_name = f"tile_{m:02d}.tiff"
                 tifffile.imwrite(os.path.join(temp_dir, tile_name), tile_data, photometric='rgb')

@@ -12,8 +12,58 @@ from aicspylibczi import CziFile
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
 INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipeline3/"
+OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipelineP5/"
 # =============================================================================
+# Conclusion: Colours correct! Files compressed (sample file 423MB), timing added, saving successfully.
+
+# (microscopy_env) tiaan@fedora:/mnt/data/dev/personal/stitch_script$ python p5test.py 
+# --- PERFECT EXTRACTION & STITCHING PIPELINE ---
+
+# [1/49] Processing: R26_PRFG2-0017.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 3.2s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 55.1s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 14.6s)
+#   -> SUCCESS: Stitched and saved R26_PRFG2-0017.ome.tif (Total file time: 73.0s)
+
+# [2/49] Processing: R30_HE-0002.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 2.7s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 42.6s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 9.2s)
+#   -> SUCCESS: Stitched and saved R30_HE-0002.ome.tif (Total file time: 54.5s)
+
+# [3/49] Processing: R30_PRFG-0003.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 3.0s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 54.9s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 14.1s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0003.ome.tif (Total file time: 72.1s)
+
+# [4/49] Processing: R30_PRFG-0004.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 4.3s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 60.4s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 21.6s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0004.ome.tif (Total file time: 86.3s)
+
+# [5/49] Processing: R30_PRFG-0005.czi
+#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
+#      (Completed in 2.8s)
+#   -> Stage 2: Fiji mathematical blending...
+#      (Completed in 66.4s)
+#   -> Stage 3: Zlib compression and OME metadata wrapping...
+#      (Completed in 15.6s)
+#   -> SUCCESS: Stitched and saved R30_PRFG-0005.ome.tif (Total file time: 84.8s)
+
 
 def perfect_pipeline_stitch():
     if not os.path.exists(FIJI_EXECUTABLE):
@@ -75,17 +125,34 @@ def perfect_pipeline_stitch():
             def process_single_tile(m):
                 # 1. Read the tile
                 tile_data, _ = czi.read_image(M=m)
-                tile_data = np.squeeze(tile_data)                                      
-                        
-                # 2. Fix Zeiss BGR to RGB color swap and ensure YXC shape
+                tile_data = np.squeeze(tile_data) 
+
+                # MAKES THE GREEN LOOK LIGHT BLUE???  Overnight test version              
+                # # 2. Fix the color
+                # if len(tile_data.shape) == 3:
+                #     if tile_data.shape[0] == 3:      
+                #         tile_data = np.moveaxis(tile_data, 0, -1)
+                #         tile_data = tile_data[..., ::-1] 
+                #     elif tile_data.shape[-1] == 3:   
+                #         tile_data = tile_data[..., ::-1] 
+
+                # Tried to correct, did not work. The red and green looks swapped?
+                # # 2. Force manual color override: [Red, Blue, Green]
+                # if len(tile_data.shape) == 3:
+                #     if tile_data.shape[0] == 3:      
+                #         tile_data = np.moveaxis(tile_data, 0, -1)
+                #         tile_data = tile_data[..., [2, 0, 1]] 
+                #     elif tile_data.shape[-1] == 3:   
+                #         tile_data = tile_data[..., [2, 0, 1]]
+
+                # 2. Fix Zeiss BGR to RGB color swap (Restoring the correct version)??
                 if len(tile_data.shape) == 3:
-                    # If aicspylibczi gives us (Color, Y, X), push Color to the back -> (Y, X, Color)
                     if tile_data.shape[0] == 3:      
                         tile_data = np.moveaxis(tile_data, 0, -1)
-                    
-                    # Reverse the last axis from BGR to RGB
-                    tile_data = tile_data[..., ::-1]
-                                            
+                        tile_data = tile_data[..., ::-1] 
+                    elif tile_data.shape[-1] == 3:   
+                        tile_data = tile_data[..., ::-1]                                        
+                        
                 # 3. Save to disk
                 tile_name = f"tile_{m:02d}.tiff"
                 tifffile.imwrite(os.path.join(temp_dir, tile_name), tile_data, photometric='rgb')
