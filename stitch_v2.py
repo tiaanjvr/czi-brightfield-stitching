@@ -13,7 +13,7 @@ import concurrent.futures
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
 INPUT_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/allrats/"
-OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitched/"
+OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2/"
 # =============================================================================
 
 def perfect_pipeline_stitch():
