@@ -7,13 +7,14 @@ import numpy as np
 import tifffile
 from aicspylibczi import CziFile
 import concurrent.futures
+from scipy.ndimage import gaussian_filter
 
 # =============================================================================
 # GLOBAL VARIABLES
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
 INPUT_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/allrats/"
-OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2/"
+OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2_1/"
 # =============================================================================
 
 def perfect_pipeline_stitch():
@@ -49,11 +50,7 @@ def perfect_pipeline_stitch():
         temp_fiji_out = os.path.join(temp_dir, "fiji_stitched.tiff")
         
         try:
-            # --- STAGE 1: MULTITHREADED PYTHON EXTRACTION ---
-            stage1_start = time.time()
-            print("  -> Stage 1: Extracting tiles and reading metadata...")
             czi = CziFile(czi_path)
-            
             if 'M' not in czi.dims:
                 print("  -> Skipping: Not a mosaic.")
                 shutil.rmtree(temp_dir)
@@ -70,48 +67,103 @@ def perfect_pipeline_stitch():
                 if y_node is not None: pixel_size_y = float(y_node.text) * 1e6
             except Exception as e:
                 print(f"     (Warning: Could not read physical pixel size. {e})")
-            
-            # --- THE MULTITHREADING FUNCTION ---
-            def process_single_tile(m):
-                # 1. Read the tile
-                tile_data, _ = czi.read_image(M=m)
-                tile_data = np.squeeze(tile_data) # Removes empty dimensions (e.g., T=1, Z=1)                     
-                        
-                # 2. Bulletproof Color Handling
-                is_rgb = False
-                if tile_data.ndim == 3:
-                    # If aicspylibczi gives us (Color, Y, X), push Color to the back -> (Y, X, Color)
-                    if tile_data.shape[0] in [3, 4]:  
-                        tile_data = np.moveaxis(tile_data, 0, -1)
-                    
-                    # Check if it has exactly 3 color channels
-                    if tile_data.shape[-1] == 3:
-                        is_rgb = True
-                        # FIX BGR TO RGB:
-                        # Zeiss typically saves as BGR. We flip the last axis to make it RGB.
-                        # If your colors turn out wrong, comment out the line below.
-                        tile_data = tile_data[..., ::-1] 
-                                            
-                # 3. Determine photometric type (prevents grayscale polarized images from crashing)
-                photo_type = 'rgb' if is_rgb else 'minisblack'
 
-                # 4. Save to disk
-                tile_name = f"tile_{m:02d}.tiff"
-                tifffile.imwrite(os.path.join(temp_dir, tile_name), tile_data, photometric=photo_type)
+# ---------------------------------------------------------
+            # STAGE 1A: CALCULATE FLAT-FIELD ILLUMINATION PROFILE
+            # ---------------------------------------------------------
+            stage1a_start = time.time()
+            print("  -> Stage 1A: Reading tiles and calculating Illumination Correction...")
+            
+            all_tiles = []
+            is_rgb_global = False
+            original_dtype = None
+
+            for m in range(tile_count):
+                t_data, _ = czi.read_image(M=m)
+                t_data = np.squeeze(t_data)
                 
-                # 5. Grab coordinates
+                # Standardize colors safely
+                if t_data.ndim == 3:
+                    if t_data.shape[0] in [3, 4]:
+                        t_data = np.moveaxis(t_data, 0, -1)
+                    if t_data.shape[-1] == 3:
+                        is_rgb_global = True
+                        t_data = t_data[..., ::-1] # BGR to RGB
+                
+                if original_dtype is None:
+                    original_dtype = t_data.dtype
+                    
+                all_tiles.append(t_data.astype(np.float32))
+
+            # Stack into numpy array and calculate the median image
+            all_tiles = np.array(all_tiles)
+            median_img = np.median(all_tiles, axis=0)
+            
+            # Apply heavy Gaussian blur to leave ONLY the lighting gradient
+            print("     Smoothing illumination map...")
+            flat_field = np.zeros_like(median_img)
+            sigma_val = 30 # Blur intensity
+            
+            if median_img.ndim == 3:
+                for c in range(median_img.shape[-1]):
+                    flat_field[..., c] = gaussian_filter(median_img[..., c], sigma=sigma_val)
+            else:
+                flat_field = gaussian_filter(median_img, sigma=sigma_val)
+                
+            # Normalize flat field (mean = 1.0)
+            mean_ff = np.mean(flat_field)
+            if mean_ff > 0:
+                flat_field = flat_field / mean_ff
+            else:
+                flat_field = np.ones_like(flat_field)
+                
+            # --- THE QUICK FIX: CLIP TO PREVENT EDGE BLOWOUT ---
+            # We prevent the flat field from dropping below 0.7, meaning the script 
+            # is mathematically prevented from boosting any pixel's brightness by more than ~1.4x.
+            flat_field = np.clip(flat_field, 0.7, 1.3)
+                
+            print(f"     (Completed in {time.time() - stage1a_start:.1f}s)")
+
+            # ---------------------------------------------------------
+            # STAGE 1B: APPLY CORRECTION & MULTITHREADED EXTRACTION
+            # ---------------------------------------------------------
+            stage1b_start = time.time()
+            print("  -> Stage 1B: Applying correction and writing tiles...")
+            
+            def process_and_save_tile(m):
+                t_data = all_tiles[m]
+                
+                # --- THE QUICK FIX: MODALITY CHECK ---
+                if is_rgb_global:
+                    # Brightfield (PR/FG): Apply Multiplicative Correction
+                    corrected = t_data / flat_field
+                else:
+                    # Polarized (Grayscale/Darkfield): Skip division to avoid noise explosion
+                    corrected = t_data
+                
+                # Restore to original bit-depth safely
+                if original_dtype.kind in ['u', 'i']:
+                    max_val = np.iinfo(original_dtype).max
+                    corrected = np.clip(corrected, 0, max_val)
+                corrected = corrected.astype(original_dtype)
+                
+                # Save to disk
+                photo_type = 'rgb' if is_rgb_global else 'minisblack'
+                tile_name = f"tile_{m:02d}.tiff"
+                tifffile.imwrite(os.path.join(temp_dir, tile_name), corrected, photometric=photo_type)
+                
+                # Grab coordinates
                 bbox = czi.get_mosaic_tile_bounding_box(M=m)
                 return m, tile_name, bbox.x, bbox.y
-            
-            # Execute the tile processing across available CPU cores
+
             extracted_data = {}
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = [executor.submit(process_single_tile, m) for m in range(tile_count)]
+                futures = [executor.submit(process_and_save_tile, m) for m in range(tile_count)]
                 for future in concurrent.futures.as_completed(futures):
                     m, t_name, x, y = future.result()
                     extracted_data[m] = (t_name, x, y)
                     
-            # Write the Fiji coordinate map in the correct sequential order
+            # Write Fiji coordinate map
             tile_conf_path = os.path.join(temp_dir, "TileConfiguration.txt")
             with open(tile_conf_path, "w") as f:
                 f.write("dim = 2\n\n")
@@ -119,14 +171,15 @@ def perfect_pipeline_stitch():
                     t_name, x, y = extracted_data[m]
                     f.write(f"{t_name}; ; ({x}, {y})\n")
                     
-            print(f"     (Completed in {time.time() - stage1_start:.1f}s)")
+            print(f"     (Completed in {time.time() - stage1b_start:.1f}s)")
             
-            # --- STAGE 2: FIJI PHASE CORRELATION STITCHING ---
+            # ---------------------------------------------------------
+            # STAGE 2: FIJI PHASE CORRELATION STITCHING
+            # ---------------------------------------------------------
             stage2_start = time.time()
             print("  -> Stage 2: Fiji mathematical blending...")
             macro_path = os.path.join(temp_dir, "stitch.ijm")
             
-            # Note: I increased memory to 16G if your system allows it. 10G is low for 5x5 TIFFs.
             macro_code = f"""
             run("Grid/Collection stitching", "type=[Positions from file] order=[Defined by TileConfiguration] directory=[{temp_dir}] layout_file=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 compute_overlap subpixel_accuracy computation_parameters=[Save memory (but be slower)] image_output=[Fuse and display]");
             saveAs("Tiff", "{temp_fiji_out}");
@@ -144,27 +197,24 @@ def perfect_pipeline_stitch():
                 continue
             print(f"     (Completed in {time.time() - stage2_start:.1f}s)")
             
-            # --- STAGE 3: COMPRESSION & METADATA INJECTION ---
+            # ---------------------------------------------------------
+            # STAGE 3: COMPRESSION & METADATA INJECTION
+            # ---------------------------------------------------------
             stage3_start = time.time()
             print("  -> Stage 3: Zlib compression and OME metadata wrapping...")
             
-            # Read Fiji's uncompressed output
             stitched_img = tifffile.imread(temp_fiji_out)
             stitched_img = np.squeeze(stitched_img)
             
-            # Safely handle stitched dimensions
             is_rgb_stitched = False
             if stitched_img.ndim == 3:
-                # If Fiji output (3, Y, X), move to (Y, X, 3)
                 if stitched_img.shape[0] == 3:
                     stitched_img = np.moveaxis(stitched_img, 0, -1)
-                
                 if stitched_img.shape[-1] == 3:
                     is_rgb_stitched = True
 
             photo_stitched = 'rgb' if is_rgb_stitched else 'minisblack'
             
-            # Save it as a highly compressed, tiled, metadata-rich OME-TIFF
             tifffile.imwrite(
                 final_ome_tiff_path,
                 stitched_img,
