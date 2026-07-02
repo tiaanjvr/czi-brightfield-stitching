@@ -13,8 +13,8 @@ from scipy.ndimage import gaussian_filter
 # GLOBAL VARIABLES
 # =============================================================================
 FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
-INPUT_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/allrats/"
-OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2_1/"
+INPUT_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/test/" # "/run/media/tiaan/ExternalSSD/bella_msc/allrats/"
+OUTPUT_BASE_FOLDER = "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2_2/" # "/run/media/tiaan/ExternalSSD/bella_msc/stitchedv2_1/"
 # =============================================================================
 
 def perfect_pipeline_stitch():
