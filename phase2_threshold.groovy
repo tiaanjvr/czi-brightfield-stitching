@@ -26,7 +26,9 @@ for (tissue in tissueObjects) {
     
     // Subtract every piece of black padding from the tissue geometry
     for (padding in paddingObjects) {
-        def paddingGeom = padding.getROI().getGeometry()
+        // FIX: Add a 5-pixel expansion (buffer) to the padding geometry.
+        // This ensures it swallows any blurry anti-aliased pixels on the border!
+        def paddingGeom = padding.getROI().getGeometry().buffer(2.0)
         tissueGeom = tissueGeom.difference(paddingGeom)
     }
     
@@ -46,3 +48,26 @@ getAnnotationObjects().each { it.setLocked(true) }
 fireHierarchyUpdate()
 
 print "Phase 2: Dual-Threshold Kidney Masking Complete!"
+
+
+
+// Step 1: Save the Black Padding Thresholder
+// Open your image. Go to Classify → Pixel classification → Create thresholder.
+// Set Resolution to Full 1.10 µm/px 
+// Channel to Average Channels.
+// Smoothing to 0
+// Set the Threshold to 10.
+// Set Below threshold to Artifact (Leave "Above threshold" blank).
+// Region to everywhere
+// Name it Black_Padding and click Save.
+
+// Step 2: Save the Tissue Thresholder
+// Stay in the Thresholder menu.
+// Set Resolution to Very High 2.19 µm/px 
+// Channel to Average Channels.
+// Smoothing to 0.5
+// Change the Threshold to 1700.
+// Set Below threshold to Tissue (Leave "Above threshold" blank).
+// In the Create Objects menu, set Min object size to 10000 and Min hole size to 0 (for the Swiss cheese effect).
+// Name it Brightfield_Mask and click Save.
+
