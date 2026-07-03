@@ -1,23 +1,23 @@
 import qupath.lib.roi.GeometryTools
 import qupath.lib.objects.PathObjects
 
-clearAnnotations()
+// 1. Clear old annotations safely (Updated for QuPath 0.4+)
+removeObjects(getAnnotationObjects(), false)
 
-// 1. Detect the Black Padding (Values < 10)
+// 2. Detect the Black Padding (Ensure Thresholder assigns to "Artifact")
 createAnnotationsFromPixelClassifier("Black_Padding", 0.0, 0.0)
-def paddingObjects = getAnnotationObjects().findAll()
+def paddingObjects = getAnnotationObjects().findAll { it.getPathClass()?.getName() == "Artifact" }
 
-// 2. Detect the Tissue (Values < 1700)
-// (This initially includes the black padding, because 0 is less than 1700)
-createAnnotationsFromPixelClassifier("Brightfield_Mask", 100000.0, 0.0)
-def tissueObjects = getAnnotationObjects().findAll { it.getPathClass() == getPathClass("Tissue") }
+// 3. Detect the Tissue (Ensure Thresholder assigns to "Tissue")
+createAnnotationsFromPixelClassifier("Brightfield_Mask", 10000.0, 0.0)
+def tissueObjects = getAnnotationObjects().findAll { it.getPathClass()?.getName() == "Tissue" }
 
 if (tissueObjects.isEmpty()) {
-    print "No tissue found!"
+    print "No tissue found! Please check that your 'Brightfield_Mask' thresholder assigns the class 'Tissue'."
     return
 }
 
-// 3. Mathematically Subtract Padding from Tissue
+// 4. Mathematically Subtract Padding from Tissue
 def newTissues = []
 def plane = tissueObjects[0].getROI().getImagePlane()
 
@@ -37,8 +37,8 @@ for (tissue in tissueObjects) {
     }
 }
 
-// 4. Clean up the board and add only the final, trimmed tissue mask
-clearAnnotations()
+// 5. Clean up the board and add only the final, trimmed tissue mask
+removeObjects(getAnnotationObjects(), false)
 addObjects(newTissues)
 
 // Lock the annotation so it isn't accidentally moved
