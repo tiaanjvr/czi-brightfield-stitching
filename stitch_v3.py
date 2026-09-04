@@ -95,15 +95,28 @@ def perfect_pipeline_stitch():
                     
                 all_tiles.append(t_data.astype(np.float32))
 
-            # Stack into numpy array and calculate the median image
+            # # Stack into numpy array and calculate the median image
+            # all_tiles = np.array(all_tiles)
+            # median_img = np.median(all_tiles, axis=0)
+            
+            # # Apply heavy Gaussian blur to leave ONLY the lighting gradient
+            # print("     Smoothing illumination map...")
+            # flat_field = np.zeros_like(median_img)
+            # sigma_val = 30 # Blur intensity
+
+
+
+            # TRYING A DIFFERENT APPROACH: USE 95TH PERCENTILE INSTEAD OF MEDIAN TO TARGET BRIGHT BACKGROUND 
+            # TO REMOVE THE OVECOMPENSATION OF VIGNETTING CORRECTION IN ILLUMINATION CORRECTION
+            # Stack into numpy array and calculate the 95th percentile (targets the bright background)
             all_tiles = np.array(all_tiles)
-            median_img = np.median(all_tiles, axis=0)
+            median_img = np.percentile(all_tiles, 95, axis=0)
             
             # Apply heavy Gaussian blur to leave ONLY the lighting gradient
-            print("     Smoothing illumination map...")
+            print("      Smoothing illumination map...")
             flat_field = np.zeros_like(median_img)
-            sigma_val = 30 # Blur intensity
-            
+            sigma_val = 150 # Significantly increased blur to smooth out tissue shapes
+
             if median_img.ndim == 3:
                 for c in range(median_img.shape[-1]):
                     flat_field[..., c] = gaussian_filter(median_img[..., c], sigma=sigma_val)
