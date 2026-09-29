@@ -26,6 +26,8 @@ from scipy.ndimage import gaussian_filter
 
 # =============================================================================
 # DEFAULT SETTINGS (can be overridden on the command line)
+# Linux:   "/path/to/Fiji.app/ImageJ-linux64"
+# Windows: "C:/path/to/Fiji.app/ImageJ-win64.exe" (untested; use forward slashes)
 # =============================================================================
 FIJI_EXECUTABLE = "/path/to/Fiji.app/ImageJ-linux64"
 INPUT_FOLDER = "/path/to/czi_files/"
@@ -193,9 +195,14 @@ def stitch_folder():
             print("  -> Stage 2: Fiji stitching and linear blending...")
             macro_path = os.path.join(temp_dir, "stitch.ijm")
 
+            # The ImageJ macro language treats backslashes as escape characters,
+            # so Windows paths are passed to Fiji with forward slashes.
+            macro_temp_dir = temp_dir.replace("\\", "/")
+            macro_fiji_out = temp_fiji_out.replace("\\", "/")
+
             macro_code = f"""
-            run("Grid/Collection stitching", "type=[Positions from file] order=[Defined by TileConfiguration] directory=[{temp_dir}] layout_file=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 compute_overlap subpixel_accuracy computation_parameters=[Save memory (but be slower)] image_output=[Fuse and display]");
-            saveAs("Tiff", "{temp_fiji_out}");
+            run("Grid/Collection stitching", "type=[Positions from file] order=[Defined by TileConfiguration] directory=[{macro_temp_dir}] layout_file=TileConfiguration.txt fusion_method=[Linear Blending] regression_threshold=0.30 max/avg_displacement_threshold=2.50 absolute_displacement_threshold=3.50 compute_overlap subpixel_accuracy computation_parameters=[Save memory (but be slower)] image_output=[Fuse and display]");
+            saveAs("Tiff", "{macro_fiji_out}");
             run("Close All");
             run("Quit");
             """

@@ -3,10 +3,12 @@ message: "If you use this software, please cite it using the metadata below."
 title: "CZI Brightfield Stitching: batch stitching of Zeiss CZI brightfield tile scans into OME-TIFF"
 type: software
 authors:
-  - given-names: Tiaan
-    family-names: JvR
+  - given-names: Tiaan Francois
+    family-names: Jansen van Rensburg
+    orcid: "https://orcid.org/0009-0001-3111-1040"
   - given-names: Isabella
     family-names: Lohse
+    orcid: "https://orcid.org/0009-0005-5625-7416"
 version: 1.0.0
 date-released: 2026-09-29
 license: MIT

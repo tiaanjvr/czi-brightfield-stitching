@@ -43,7 +43,9 @@ czi-brightfield-stitching/
 │   ├── stitch_v3.py        Phase 1 stitching (default)
 │   └── stitch_v2.py        Phase 1 stitching, alternative illumination correction
 ├── qupath/
-│   └── tissue_mask.groovy  Phase 2 tissue masking
+│   ├── tissue_mask.groovy  Phase 2 tissue masking
+│   ├── PRFG.groovy         Tissue masking and Sirius Red / Fast Green quantification
+│   └── POL.groovy          Tissue mask export (GeoJSON) for the polarised-light workflow
 ├── archive/                Earlier development versions (see archive/README.md)
 ├── environment.yml         Conda environment (pinned versions)
 ├── requirements.txt        pip requirements (pinned versions)
@@ -56,6 +58,8 @@ czi-brightfield-stitching/
 | `stitching/stitch_v3.py` | **Default.** Illumination profile from the per-pixel 95th percentile across tiles. |
 | `stitching/stitch_v2.py` | Alternative for slides where the v3 correction makes the seams too light. Illumination profile from the per-pixel median. |
 | `qupath/tissue_mask.groovy` | Phase 2 tissue masking in QuPath. |
+| `qupath/PRFG.groovy` | Tissue masking followed by Sirius Red and Fast Green area quantification for PRFG-stained slides. |
+| `qupath/POL.groovy` | Exports `Tissue` annotations as GeoJSON files for the polarised-light (POL) workflow. |
 
 ---
 
@@ -85,6 +89,10 @@ The fused image contains black padding along its edges wherever no tile covers t
 3. The padding, expanded by a 2-pixel buffer to include anti-aliased border pixels, is geometrically subtracted from the tissue.
 4. All other annotations are removed, and the trimmed `Tissue` annotations are added and locked.
 
+### Stain Quantification and Mask Export
+* **`qupath/PRFG.groovy`** performs the same tissue masking and then measures collagen on Picrosirius Red / Fast Green slides. The `PR_Red_Mask` pixel classifier measures the Sirius Red area inside the tissue annotation without creating detection objects. The Fast Green area is the remaining tissue area. The Sirius Red area, Fast Green area and both percentages of total tissue area are added to the annotation's measurements and printed to the log.
+* **`qupath/POL.groovy`** exports every `Tissue` annotation on an image to `<project folder>/Exported_Masks/<image name>.geojson`, where `<image name>` is the image name up to the first `.`, for use in the polarised-light (POL) workflow.
+
 ### Version History
 
 | Date | Version | Change | Outcome |
@@ -95,6 +103,7 @@ The fused image contains black padding along its edges wherever no tile covers t
 | Apr 2026 | `archive/stitch_v1.py` | Hybrid pipeline (v0.1.0): Python extraction, Fiji stitching, Python compression. | Working. |
 | Jun–Jul 2026 | `stitching/stitch_v2.py` | Flat-field illumination correction (median), clipping, grayscale support. | Working. |
 | Jul 2026 | `qupath/tissue_mask.groovy` | Dual-threshold QuPath tissue masking. | Working. |
+| Jul–Sep 2026 | `qupath/PRFG.groovy`, `qupath/POL.groovy` | Sirius Red / Fast Green quantification and GeoJSON mask export. | Working. |
 | Sep 2026 | `stitching/stitch_v3.py` | Illumination profile from the 95th percentile, blur sigma 30 → 150. | Working. Default. |
 
 ---
@@ -102,8 +111,8 @@ The fused image contains black padding along its edges wherever no tile covers t
 ## Requirements
 
 ### Hardware
-* **Operating system:** Linux (developed and tested on Fedora). Windows and macOS are untested.
-* **Memory:** 32 GB RAM recommended. Fiji is allocated up to 16 GB (adjustable with `--mem`), and the tiles of the current slide are held in memory by Python at the same time.
+* **Operating system:** Linux (developed and tested on Fedora). Instructions for Windows are included, but Windows is untested. macOS is untested.
+* **Memory:** 16 GB RAM recommended. Fiji may use up to 16 GB (`--mem`, default `16G`). If Fiji fails on a computer with less memory, lower this value.
 * **Disk space:** 200–450 MB per stitched slide, plus 1–2 GB of temporary space while a slide is processed.
 
 ### Software
@@ -121,7 +130,7 @@ The pipeline relies on the following core libraries.
 * `argparse`, `os`, `glob`, `shutil`, `time`
 
 **External software:**
-* **Fiji (ImageJ):** Used strictly for its `Grid/Collection stitching` algorithm (Linear Blending). The scripts require the path to the `ImageJ-linux64` launcher.
+* **Fiji (ImageJ):** Used strictly for its `Grid/Collection stitching` algorithm (Linear Blending). The scripts require the path to the Fiji launcher (`ImageJ-linux64` on Linux, `ImageJ-win64.exe` on Windows).
 * **QuPath:** Used to view the stitched images and run the Phase 2 tissue masking script (QuPath 0.4 or newer).
 
 ### Tested Versions
@@ -139,7 +148,7 @@ The pipeline relies on the following core libraries.
 ---
 
 ## Installation
-Setup is required once per computer. All commands are entered in a terminal, one line at a time.
+Setup is required once per computer. All commands are entered in a terminal, one line at a time: **Terminal** on Linux, or **Miniforge Prompt** (installed in step 1) on Windows.
 
 ### 1. Install conda
 Conda creates an isolated environment so the pipeline's Python packages do not conflict with other software. Check for an existing installation:
@@ -153,15 +162,17 @@ bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 Accept the licence, keep the default install location and answer `yes` to initialise conda. Open a new terminal before continuing.
 
+**Windows (untested):** Download and run the Windows installer (`Miniforge3-Windows-x86_64.exe`) from the [Miniforge releases page](https://github.com/conda-forge/miniforge/releases/latest), keeping the default options. Use the **Miniforge Prompt** from the Start menu for all further commands.
+
 ### 2. Download the code
-Download the latest release from the [Releases page](https://github.com/tiaanjvr/czi-brightfield-stitching/releases) and extract it, or clone the repository:
+Download the latest release (**Source code (zip)**) from the [Releases page](https://github.com/tiaanjvr/czi-brightfield-stitching/releases) and extract it, or clone the repository:
 ```bash
 git clone https://github.com/tiaanjvr/czi-brightfield-stitching.git
 cd czi-brightfield-stitching
 ```
 
 ### 3. Create the Python environment
-From inside the project folder:
+From inside the project folder (`cd` to the extracted folder first):
 ```bash
 conda env create -f environment.yml
 conda activate microscopy_env
@@ -179,9 +190,11 @@ pip install -r requirements.txt
 ```
 
 ### 4. Install Fiji
-1. Download Fiji for Linux from [fiji.sc](https://fiji.sc/) and extract the `.zip` file to a permanent location.
-2. Locate the launcher inside the extracted folder: `ImageJ-linux64` (tested). Recent Fiji releases also include `fiji-linux-x64`.
-3. Note the launcher's full path, for example `/opt/Fiji.app/ImageJ-linux64`. Dragging the file into a terminal window prints its path.
+1. Download Fiji for your operating system from [fiji.sc](https://fiji.sc/) and extract the `.zip` file to a permanent location.
+2. Locate the launcher inside the extracted folder:
+   * **Linux:** `ImageJ-linux64` (tested). Recent Fiji releases also include `fiji-linux-x64`.
+   * **Windows (untested):** `ImageJ-win64.exe`. Recent Fiji releases also include `fiji-windows-x64.exe`. Avoid extracting Fiji into `C:\Program Files`, which is write-protected.
+3. Note the launcher's full path, for example `/opt/Fiji.app/ImageJ-linux64` or `C:/Fiji.app/ImageJ-win64.exe`. On Linux, dragging the file into a terminal window prints its path. On Windows, Shift + right-click the file and choose **Copy as path**.
 
 The Grid/Collection stitching plugin is included with Fiji. No additional plugins are required.
 
@@ -210,7 +223,12 @@ python stitching/stitch_v3.py \
 | `--input` | Folder containing the `.czi` files. |
 | `--output` | Folder for the stitched `.ome.tif` files. Created if it does not exist. |
 | `--fiji` | Full path to the Fiji launcher. |
-| `--mem` | Maximum memory for Fiji (default `16G`). On computers with less than 32 GB of RAM, use a lower value such as `10G`. |
+| `--mem` | Maximum memory for Fiji (default `16G`). If Fiji fails for lack of memory, use a lower value such as `10G`. |
+
+**Windows (untested)**, in the Miniforge Prompt, on a single line. Use forward slashes in paths and quotation marks around paths that contain spaces:
+```bat
+python stitching/stitch_v3.py --input "C:/Data/Slides/czi" --output "C:/Data/Slides/stitched" --fiji "C:/Fiji.app/ImageJ-win64.exe"
+```
 
 The defaults for these arguments can also be set in the `DEFAULT SETTINGS` block at the top of each script, after which the script runs without arguments.
 
@@ -241,7 +259,7 @@ Grand Total Processing Time: ... minutes
 * A failure on one slide is reported as an `ERROR` line, and processing continues with the next slide.
 
 ### Stopping and resuming
-* **Ctrl + C** stops the run (**Ctrl + \\** if it does not respond).
+* **Ctrl + C** stops the run (on Linux, **Ctrl + \\** if it does not respond).
 * Re-running the same command resumes the batch: slides that already have an `.ome.tif` in the output folder are skipped.
 * If a run is stopped during Stage 3, the partially written `.ome.tif` for that slide must be deleted before resuming. Otherwise that slide is skipped.
 * To reprocess a slide, delete its `.ome.tif` and run the script again.
@@ -301,6 +319,18 @@ Tissue is darker than the glass background, so pixels below the threshold are cl
 2. With an image open, select *Run → Run* (**Ctrl + R**). On success the log ends with `Tissue masking complete.`
 3. To process every image, select *Run → Run for project*.
 
+### 4. PRFG quantification and POL mask export
+**`PRFG.groovy`** replaces `tissue_mask.groovy` for Picrosirius Red / Fast Green slides and is run the same way. In addition to `Black_Padding` and `Brightfield_Mask`, it requires a pixel classifier named `PR_Red_Mask` in the project that classifies Sirius Red–stained pixels. After a run, the tissue annotation's measurements (*Annotations* tab, or *Measure → Show annotation measurements* to export a table for all images) contain:
+
+| Measurement | Description |
+|---|---|
+| `Red_Signal: ... area µm^2` | Sirius Red area, from `PR_Red_Mask` |
+| `Area: Green Tissue (µm^2)` | Fast Green area (tissue area minus Sirius Red area) |
+| `Percent: Sirius Red (%)` | Sirius Red area as a percentage of tissue area |
+| `Percent: Fast Green (%)` | Fast Green area as a percentage of tissue area |
+
+**`POL.groovy`** exports the `Tissue` annotations of each image to the `Exported_Masks` folder inside the QuPath project folder. Run it with *Run → Run for project* after the tissue masks have been created. To export elsewhere, change the `exportDir` line at the top of the script to an absolute path using forward slashes.
+
 ---
 
 ## Troubleshooting
@@ -316,7 +346,8 @@ Tissue is darker than the glass background, so pixels below the threshold are cl
 | `Skipping: Output already exists.` | The slide has already been processed. | Delete the `.ome.tif` to reprocess it. |
 | `ERROR on <file>: Command '[...]' returned non-zero exit status ...` | Fiji failed, usually from insufficient memory. | Close other programs, lower `--mem`, and check free disk space. |
 | `Error: Fiji failed to output the stitched TIFF.` | Fiji produced no image. | As above. |
-| `Permission denied` when Fiji starts | The launcher is not executable. | `chmod +x /path/to/Fiji.app/ImageJ-linux64` |
+| `Permission denied` when Fiji starts (Linux) | The launcher is not executable. | `chmod +x /path/to/Fiji.app/ImageJ-linux64` |
+| Paths not found on Windows | Backslashes or unquoted spaces in paths. | Use forward slashes and put quotation marks around each path. |
 | Seams or tile edges too light | The v3 illumination correction does not suit the slide. | Process the slide with `stitching/stitch_v2.py`. |
 | Uneven brightness or blown-out edges | Illumination correction strength. | Adjust `sigma_val` and the `np.clip(flat_field, 0.7, 1.3)` limits in the script. |
 | Colours swapped (red appears blue) | Camera channel order differs from Zeiss BGR. | Remove the `t_data = t_data[..., ::-1]` channel flip for that camera. |
@@ -329,13 +360,15 @@ Tissue is darker than the glass background, so pixels below the threshold are cl
 | `No tissue found! ...` | `Brightfield_Mask` does not assign `Tissue`, or the threshold is unsuitable. | Check the thresholder's *Below threshold* class and threshold value. |
 | Classifier not found | Thresholders missing from the project or misnamed. | Create them with the exact names `Black_Padding` and `Brightfield_Mask`. |
 | Mask includes the black padding | `Black_Padding` does not assign `Artifact`. | Check the thresholder's *Below threshold* class. |
+| `Unable to find pixel classifier PR_Red_Mask` | The Sirius Red classifier is missing from the project. | Create and save `PR_Red_Mask` in the project. |
+| `Skipped <image>: No 'Tissue' mask found.` (POL) | The image has no `Tissue` annotation. | Run the tissue masking script on that image first. |
 
 ---
 
 ## Citation
 If you use this software, please cite it. Citation metadata is provided in [`CITATION.cff`](CITATION.cff), and GitHub's **Cite this repository** button (repository sidebar) exports it as APA or BibTeX.
 
-> JvR, T., & Lohse, I. (2026). *CZI Brightfield Stitching* (Version 1.0.0) [Computer software]. https://github.com/tiaanjvr/czi-brightfield-stitching
+> Jansen van Rensburg, T.F. and Lohse, I. (2026) *CZI Brightfield Stitching* (Version 1.0.0) [Computer program]. Available at: https://github.com/tiaanjvr/czi-brightfield-stitching
 
 ---
 
