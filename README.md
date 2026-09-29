@@ -1,5 +1,6 @@
 # CZI Brightfield Stitching
 
+[![DOI](https://zenodo.org/badge/1197100719.svg)](https://doi.org/10.5281/zenodo.23039585)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A hybrid Python/Fiji pipeline for batch processing, seamlessly stitching, illumination-correcting and compressing Zeiss `.czi` brightfield microscopy tile scans into QuPath-ready `.ome.tif` files, followed by a QuPath script for automated tissue masking.
@@ -366,9 +367,16 @@ Tissue is darker than the glass background, so pixels below the threshold are cl
 ---
 
 ## Citation
-If you use this software, please cite it. Citation metadata is provided in [`CITATION.cff`](CITATION.cff), and GitHub's **Cite this repository** button (repository sidebar) exports it as APA or BibTeX.
+If you use this software, please cite the archived release on Zenodo:
 
-> Jansen van Rensburg, T.F. and Lohse, I. (2026) *CZI Brightfield Stitching* (Version 1.0.0) [Computer program]. Available at: https://github.com/tiaanjvr/czi-brightfield-stitching
+> Jansen van Rensburg, T.F. and Lohse, I. (2026) *CZI Brightfield Stitching: batch stitching of Zeiss CZI brightfield tile scans into OME-TIFF* (Version 1.0.0) [Computer program]. Zenodo. Available at: https://doi.org/10.5281/zenodo.23039586
+
+| DOI | Refers to |
+|---|---|
+| [10.5281/zenodo.23039586](https://doi.org/10.5281/zenodo.23039586) | Version 1.0.0 |
+| [10.5281/zenodo.23039585](https://doi.org/10.5281/zenodo.23039585) | All versions (resolves to the latest release) |
+
+Citation metadata is provided in [`CITATION.cff`](CITATION.cff). GitHub's **Cite this repository** button (repository sidebar) exports it as APA or BibTeX.
 
 ---
 

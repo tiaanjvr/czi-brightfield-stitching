@@ -12,6 +12,14 @@ authors:
 version: 1.0.0
 date-released: 2026-09-29
 license: MIT
+doi: 10.5281/zenodo.23039585
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23039585
+    description: Concept DOI for all versions of the software.
+  - type: doi
+    value: 10.5281/zenodo.23039586
+    description: DOI for version 1.0.0.
 repository-code: "https://github.com/tiaanjvr/czi-brightfield-stitching"
 abstract: >-
   A Python and Fiji pipeline that batch-stitches Zeiss .czi brightfield
