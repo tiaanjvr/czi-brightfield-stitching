@@ -9,8 +9,8 @@ import concurrent.futures
 # =============================================================================
 # 1. GLOBAL VARIABLES
 # =============================================================================
-INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/" # "/run/media/tiaan/Windows-SSD/czi/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/" # "/run/media/tiaan/Windows-SSD/czi/2026 rats/stitched_output/"
+INPUT_FOLDER = "/path/to/czi_files/"
+OUTPUT_BASE_FOLDER = "/path/to/stitched_output/"
 
 CHANNEL_TO_STITCH = 0 
 Z_PLANE_TO_STITCH = 0

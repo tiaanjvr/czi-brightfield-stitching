@@ -7,11 +7,11 @@ from aicspylibczi import CziFile  # NEW: We use Python to intelligently parse th
 # =============================================================================
 # GLOBAL VARIABLES
 # =============================================================================
-INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/fiji_batch/"
+INPUT_FOLDER = "/path/to/czi_files/"
+OUTPUT_BASE_FOLDER = "/path/to/stitched_output/"
 
 # Update this line to your exact Fiji executable path
-FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
+FIJI_EXECUTABLE = "/path/to/Fiji.app/ImageJ-linux64" 
 # =============================================================================
 
 def fiji_batch_stitch():

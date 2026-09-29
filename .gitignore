@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+# Pipeline data and output
+*.czi
+*.ome.tif
+*.tif
+*.tiff
+temp_*/

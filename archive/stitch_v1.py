@@ -10,56 +10,10 @@ from aicspylibczi import CziFile
 # =============================================================================
 # GLOBAL VARIABLES
 # =============================================================================
-FIJI_EXECUTABLE = "/home/tiaan/Downloads/Fiji.app/ImageJ-linux64" 
-INPUT_FOLDER = "/home/tiaan/Downloads/2026 rats/control/"
-OUTPUT_BASE_FOLDER = "/home/tiaan/Downloads/2026 rats/stitched_output/perfect_pipelineP3/"
+FIJI_EXECUTABLE = "/path/to/Fiji.app/ImageJ-linux64" 
+INPUT_FOLDER = "/path/to/czi_files/"
+OUTPUT_BASE_FOLDER = "/path/to/stitched_output/"
 # =============================================================================
-# Conclusion: Colours correct! Files compressed (sample file 386MB), timing added, but getting the "axes do not match stored shape" error
-
-# (microscopy_env) tiaan@fedora:/mnt/data/dev/personal/stitch_script$ python p3test.py 
-# --- PERFECT EXTRACTION & STITCHING PIPELINE ---
-
-# [1/49] Processing: R26_PRFG2-0017.czi
-#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
-#      (Completed in 3.8s)
-#   -> Stage 2: Fiji mathematical blending...
-#      (Completed in 71.7s)
-#   -> Stage 3: Zlib compression and OME metadata wrapping...
-#   -> ERROR on R26_PRFG2-0017.czi: axes do not match stored shape
-
-# [2/49] Processing: R30_HE-0002.czi
-#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
-#      (Completed in 2.9s)
-#   -> Stage 2: Fiji mathematical blending...
-#      (Completed in 50.0s)
-#   -> Stage 3: Zlib compression and OME metadata wrapping...
-#   -> ERROR on R30_HE-0002.czi: axes do not match stored shape
-
-# [3/49] Processing: R30_PRFG-0003.czi
-#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
-#      (Completed in 3.8s)
-#   -> Stage 2: Fiji mathematical blending...
-#      (Completed in 72.1s)
-#   -> Stage 3: Zlib compression and OME metadata wrapping...
-#   -> ERROR on R30_PRFG-0003.czi: axes do not match stored shape
-
-# [4/49] Processing: R30_PRFG-0004.czi
-#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
-#      (Completed in 4.1s)
-#   -> Stage 2: Fiji mathematical blending...
-#      (Completed in 68.0s)
-#   -> Stage 3: Zlib compression and OME metadata wrapping...
-#   -> ERROR on R30_PRFG-0004.czi: axes do not match stored shape
-
-# [5/49] Processing: R30_PRFG-0005.czi
-#   -> Stage 1: Extracting tiles and reading metadata using multiple threads...
-#      (Completed in 3.8s)
-#   -> Stage 2: Fiji mathematical blending...
-#      (Completed in 66.4s)
-#   -> Stage 3: Zlib compression and OME metadata wrapping...
-#   -> ERROR on R30_PRFG-0005.czi: axes do not match stored shape
-
-#  -> ERROR on R26_PRFG2-0017.czi: axes do not match stored shape
 
 def perfect_pipeline_stitch():
     if not os.path.exists(FIJI_EXECUTABLE):
@@ -121,16 +75,17 @@ def perfect_pipeline_stitch():
             def process_single_tile(m):
                 # 1. Read the tile
                 tile_data, _ = czi.read_image(M=m)
-                tile_data = np.squeeze(tile_data) 
-                
-                # 2. Fix the color
+                tile_data = np.squeeze(tile_data)                                      
+                        
+                # 2. Fix Zeiss BGR to RGB color swap and ensure YXC shape
                 if len(tile_data.shape) == 3:
+                    # If aicspylibczi gives us (Color, Y, X), push Color to the back -> (Y, X, Color)
                     if tile_data.shape[0] == 3:      
                         tile_data = np.moveaxis(tile_data, 0, -1)
-                        tile_data = tile_data[..., ::-1] 
-                    elif tile_data.shape[-1] == 3:   
-                        tile_data = tile_data[..., ::-1] 
-                        
+                    
+                    # Reverse the last axis from BGR to RGB
+                    tile_data = tile_data[..., ::-1]
+                                            
                 # 3. Save to disk
                 tile_name = f"tile_{m:02d}.tiff"
                 tifffile.imwrite(os.path.join(temp_dir, tile_name), tile_data, photometric='rgb')
@@ -187,6 +142,13 @@ def perfect_pipeline_stitch():
             
             # Read Fiji's uncompressed output
             stitched_img = tifffile.imread(temp_fiji_out)
+            
+            # 1. Strip out any fake Z or T dimensions Fiji added (e.g., turns 1x3xYxX into 3xYxX)
+            stitched_img = np.squeeze(stitched_img)
+            
+            # 2. If Fiji put the 3 Colors at the front (CYX), move them to the back (YXC)
+            if len(stitched_img.shape) == 3 and stitched_img.shape[0] == 3:
+                stitched_img = np.moveaxis(stitched_img, 0, -1)
             
             # Save it as a highly compressed, tiled, metadata-rich OME-TIFF
             tifffile.imwrite(

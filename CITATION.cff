@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "CZI Brightfield Stitching: batch stitching of Zeiss CZI brightfield tile scans into OME-TIFF"
+type: software
+authors:
+  - given-names: Tiaan
+    family-names: JvR
+  - given-names: Isabella
+    family-names: Lohse
+version: 1.0.0
+date-released: 2026-09-29
+license: MIT
+repository-code: "https://github.com/tiaanjvr/czi-brightfield-stitching"
+abstract: >-
+  A Python and Fiji pipeline that batch-stitches Zeiss .czi brightfield
+  mosaic scans into tiled, compressed OME-TIFF files with physical pixel
+  sizes, including flat-field illumination correction, followed by a QuPath
+  script for dual-threshold tissue masking.
+keywords:
+  - microscopy
+  - image stitching
+  - brightfield
+  - histology
+  - CZI
+  - OME-TIFF
+  - Fiji
+  - QuPath
